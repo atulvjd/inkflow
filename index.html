@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InkFlow — Editorial Publishing</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&amp;family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&amp;family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#111111',
+            'ink-light': '#1F2937',
+            secondary: '#6B7280',
+            border: '#D1D5DB',
+            surface: '#FAFAFA',
+            'surface-alt': '#F3F4F6',
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', 'Georgia', 'serif'],
+            serif: ['"Lora"', 'Georgia', 'serif'],
+            body: ['"Inter"', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: 'Inter', system-ui, sans-serif; color: #111111; background: #FAFAFA; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Smooth transitions */
+    .card-hover { transition: all 0.4s cubic-bezier(0.23, 1, 0.320, 1); }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+
+    .bookmark-btn { transition: all 0.3s ease; }
+    .bookmark-btn:hover { transform: scale(1.1); }
+    .bookmark-btn.active { color: #111111; }
+
+    .follow-btn { transition: all 0.2s ease; }
+    .follow-btn:hover { background-color: #111111; color: white; }
+
+    .nav-link { position: relative; transition: color 0.3s ease; color: #6B7280; }
+    .nav-link:hover { color: #111111; }
+
+    /* Article body styles */
+    .article-body h2 { font-family: 'Playfair Display', Georgia, serif; font-size: 32px; font-weight: 700; margin: 48px 0 20px; line-height: 1.25; color: #111111; }
+    .article-body h3 { font-family: 'Playfair Display', Georgia, serif; font-size: 24px; font-weight: 600; margin: 40px 0 16px; line-height: 1.3; color: #111111; }
+    .article-body p { font-family: 'Lora', Georgia, serif; font-size: 18px; line-height: 1.85; margin-bottom: 28px; color: #1F2937; }
+    .article-body blockquote { border-left: 2px solid #111111; padding: 0 0 0 28px; margin: 40px 0; font-style: italic; color: #4B5563; font-size: 19px; line-height: 1.75; font-family: 'Lora', Georgia, serif; font-weight: 500; }
+    .article-body ul, .article-body ol { font-family: 'Lora', Georgia, serif; font-size: 18px; line-height: 1.85; margin: 0 0 28px 28px; color: #1F2937; }
+    .article-body li { margin-bottom: 12px; }
+    .article-body pre { background: #1F2937; color: #E5E7EB; padding: 28px; border-radius: 2px; margin: 40px 0; overflow-x: auto; font-size: 13px; line-height: 1.7; }
+    .article-body code { font-family: 'JetBrains Mono', monospace; }
+    .article-body .img-placeholder { width: 100%; height: 360px; margin: 40px 0; display: flex; align-items: center; justify-content: center; background: #F3F4F6; }
+
+    .floating-sidebar { position: sticky; top: 140px; }
+
+    /* Editor toolbar */
+    .toolbar-btn { transition: all 0.15s ease; }
+    .toolbar-btn:hover { background: #F3F4F6; color: #111111; }
+    .toolbar-btn.active { background: #111111; color: white; }
+
+    /* Animations */
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-in { animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.320, 1) forwards; }
+    .animate-in-delay-1 { animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.320, 1) 0.1s forwards; opacity: 0; }
+    .animate-in-delay-2 { animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.320, 1) 0.2s forwards; opacity: 0; }
+    .animate-in-delay-3 { animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.320, 1) 0.3s forwards; opacity: 0; }
+
+    /* Tag pills */
+    .tag-pill { transition: all 0.25s ease; }
+    .tag-pill:hover { background: #111111; color: white; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+    .comment-input:focus { outline: none; border-color: #111111; box-shadow: inset 0 0 0 1px #111111; }
+
+    /* Search overlay */
+    .search-overlay { backdrop-filter: blur(6px); background: rgba(0,0,0,0.35); }
+
+    /* Notification dot */
+    .notif-dot { width: 6px; height: 6px; background: #111111; border-radius: 50%; position: absolute; top: 2px; right: 2px; }
+
+    .editor-area { min-height: 500px; }
+    .editor-area:focus { outline: none; border-bottom: 1px solid #D1D5DB; }
+    .editor-area:empty::before { content: attr(data-placeholder); color: #A0AEC0; font-family: 'Lora', Georgia, serif; font-size: 18px; }
+
+    /* Premium refinement */
+    .refined-border { border-color: #E5E7EB; }
+    .refined-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app" class="w-full h-full overflow-auto bg-white">
+   <!-- Search Overlay -->
+   <div id="searchOverlay" class="fixed inset-0 z-50 search-overlay hidden flex items-start justify-center pt-[12%]">
+    <div class="bg-white w-full max-w-2xl mx-4 p-8 refined-shadow animate-in">
+     <div class="flex items-center gap-3 border-b border-border pb-6"><i data-lucide="search" class="w-5 h-5 text-secondary"></i> <input id="searchInput" type="text" placeholder="Search articles, topics, authors..." class="flex-1 text-base font-body outline-none placeholder:text-gray-400"> <button onclick="toggleSearch()" class="text-secondary hover:text-ink transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+     </div>
+     <div class="pt-6">
+      <p class="text-xs font-body text-secondary uppercase tracking-widest mb-4">Recent Searches</p>
+      <div class="flex flex-wrap gap-2"><span class="tag-pill px-3 py-2 rounded-sm text-sm font-body border border-border cursor-pointer text-ink">Artificial Intelligence</span> <span class="tag-pill px-3 py-2 rounded-sm text-sm font-body border border-border cursor-pointer text-ink">Long-form Writing</span> <span class="tag-pill px-3 py-2 rounded-sm text-sm font-body border border-border cursor-pointer text-ink">Design Systems</span> <span class="tag-pill px-3 py-2 rounded-sm text-sm font-body border border-border cursor-pointer text-ink">Technology</span>
+      </div>
+     </div>
+    </div>
+   </div><!-- Navigation -->
+   <nav id="mainNav" class="sticky top-0 z-40 bg-white border-b border-border refined-shadow">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+     <div class="flex items-center justify-between h-20">
+      <div class="flex items-center gap-16"><a href="#" onclick="showPage('home')" class="flex items-center gap-2.5"> <span id="navLogo" class="text-2xl font-display font-semibold text-ink tracking-tight">InkFlow</span> </a>
+       <div class="hidden md:flex items-center gap-10"><a href="#" onclick="showPage('home')" class="nav-link text-sm font-body font-medium">Home</a> <a href="#" onclick="showPage('home')" class="nav-link text-sm font-body font-medium">Explore</a> <a href="#" onclick="showPage('home')" class="nav-link text-sm font-body font-medium">Topics</a> <a href="#" onclick="showPage('home')" class="nav-link text-sm font-body font-medium">Trending</a> <a href="#" onclick="showPage('editor')" class="nav-link text-sm font-body font-medium">Write</a>
+       </div>
+      </div>
+      <div class="flex items-center gap-6"><button onclick="toggleSearch()" class="p-2.5 rounded-full hover:bg-surface transition-colors" aria-label="Search"> <i data-lucide="search" class="w-4 h-4 text-secondary"></i> </button> <button class="p-2.5 rounded-full hover:bg-surface transition-colors relative" aria-label="Notifications"> <i data-lucide="bell" class="w-4 h-4 text-secondary"></i> <span class="notif-dot"></span> </button> <button onclick="showPage('profile')" class="w-9 h-9 rounded-full bg-ink text-white flex items-center justify-center text-sm font-body font-semibold" aria-label="Profile">E</button>
+      </div>
+     </div>
+    </div>
+   </nav><!-- HOME PAGE -->
+   <div id="page-home" class="page active">
+    <!-- Featured Article -->
+    <section class="max-w-6xl mx-auto px-6 lg:px-8 py-16 lg:py-20">
+     <div class="animate-in"><a href="#" onclick="showPage('article'); return false;" class="group block">
+       <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div class="lg:col-span-6">
+         <div class="w-full aspect-[16/9] rounded-sm bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 overflow-hidden relative border border-border"><img src="https://images.unsplash.com/photo-1455849318743-68233fe63efd?w=800&amp;q=80" alt="Mindful writing" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='linear-gradient(to bottom right, #fef3c7, #fef08a)'; this.style.objectFit='cover';">
+         </div>
+        </div>
+        <div class="lg:col-span-6 flex flex-col gap-6">
+         <div><span class="text-xs font-body text-ink uppercase tracking-widest font-semibold">Featured Story</span>
+         </div>
+         <h1 id="featuredTitle" class="text-4xl lg:text-5xl font-display font-semibold text-ink leading-tight group-hover:text-ink-light transition-colors duration-300">The Art of Mindful Writing</h1>
+         <p id="featuredExcerpt" class="text-lg font-serif text-secondary leading-relaxed max-w-md">How slowing down and embracing silence can transform your creative process and help you find your authentic voice.</p>
+         <div class="flex items-center gap-4 pt-2">
+          <div class="w-12 h-12 rounded-full bg-ink flex items-center justify-center text-white text-sm font-body font-semibold">
+           S
+          </div>
+          <div>
+           <p class="text-sm font-body font-semibold text-ink">Sarah Chen</p>
+           <p class="text-xs font-body text-secondary">Dec 15, 2024 · 8 min read</p>
+          </div>
+         </div>
+        </div>
+       </div></a>
+     </div>
+    </section><!-- Divider -->
+    <div class="max-w-6xl mx-auto px-6 lg:px-8">
+     <div class="border-t border-border"></div>
+    </div><!-- Main Content Grid -->
+    <section class="max-w-6xl mx-auto px-6 lg:px-8 py-12">
+     <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <!-- Articles Grid -->
+      <div class="lg:col-span-8">
+       <h2 class="text-xs font-body font-semibold text-secondary uppercase tracking-widest mb-8">Latest Stories</h2>
+       <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-12" id="articleGrid">
+        <!-- Card 1 -->
+        <article class="card-hover border border-border overflow-hidden bg-white animate-in-delay-1 cursor-pointer" onclick="showPage('article')">
+         <div class="aspect-[4/3] bg-slate-100 overflow-hidden relative border-b border-border"><img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&amp;q=80" alt="Building resilient systems" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+         </div>
+         <div class="p-6">
+          <span class="text-xs font-body text-ink uppercase tracking-widest font-semibold">Technology</span>
+          <h3 class="font-display font-semibold text-lg text-ink mt-3 leading-snug">Building Resilient Systems</h3>
+          <p class="text-sm text-secondary font-body mt-2 line-clamp-2">Exploring principles behind designing software that handles failure gracefully and maintains stability under pressure.</p>
+          <div class="flex items-center justify-between mt-4">
+           <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-ink flex items-center justify-center text-white text-[10px] font-semibold">
+             M
+            </div><span class="text-xs text-secondary font-body">Marcus Rivera · 6 min</span>
+           </div><button class="bookmark-btn text-secondary" onclick="event.stopPropagation(); toggleBookmark(this)" aria-label="Bookmark"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
+          </div>
+         </div>
+        </article><!-- Card 2 -->
+        <article class="card-hover border border-border overflow-hidden bg-white animate-in-delay-2 cursor-pointer" onclick="showPage('article')">
+         <div class="aspect-[4/3] bg-slate-100 overflow-hidden relative border-b border-border"><img src="https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600&amp;q=80" alt="Typography article" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+         </div>
+         <div class="p-6">
+          <span class="text-xs font-body text-ink uppercase tracking-widest font-semibold">Design</span>
+          <h3 class="font-display font-semibold text-lg text-ink mt-3 leading-snug">The Invisible Art of Typography</h3>
+          <p class="text-sm text-secondary font-body mt-2 line-clamp-2">Why the best typefaces are ones you never notice, but deeply feel in every word.</p>
+          <div class="flex items-center justify-between mt-4">
+           <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-ink flex items-center justify-center text-white text-[10px] font-semibold">
+             A
+            </div><span class="text-xs text-secondary font-body">Aria Nguyen · 5 min</span>
+           </div><button class="bookmark-btn text-secondary" onclick="event.stopPropagation(); toggleBookmark(this)" aria-label="Bookmark"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
+          </div>
+         </div>
+        </article>
+       </div><!-- More Articles -->
+       <div class="mt-12">
+        <h2 class="text-xs font-body font-semibold text-secondary uppercase tracking-widest mb-8">More to Read</h2>
+        <div class="space-y-8">
+         <article class="flex gap-6 items-start cursor-pointer group" onclick="showPage('article')">
+          <div class="flex-1 min-w-0">
+           <div class="flex items-center gap-2 mb-2">
+            <div class="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-white text-[8px] font-semibold">
+             L
+            </div><span class="text-xs text-secondary font-body">Luna Park</span>
+           </div>
+           <h3 class="font-display font-semibold text-ink text-base leading-snug group-hover:text-ink-light transition-colors">Remote Work Changed Everything</h3>
+           <p class="text-sm text-secondary font-body mt-1 line-clamp-2 hidden sm:block">The pandemic forced us to rethink where we work. Now it's time to rethink how we measure output.</p>
+           <div class="flex items-center gap-3 mt-3"><span class="text-xs text-secondary font-body">Dec 12 · 7 min</span> <span class="tag-pill px-2 py-1 text-[11px] font-body border border-border rounded-sm text-secondary cursor-pointer">Productivity</span>
+           </div>
+          </div>
+          <div class="w-24 h-24 rounded-sm bg-slate-100 flex-shrink-0 flex items-center justify-center border border-border"><img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=200&amp;q=80" alt="Remote work" class="w-full h-full object-cover rounded-sm" loading="lazy" onerror="this.style.background='#f3f4f6';">
+          </div>
+         </article>
+         <div class="border-t border-border"></div>
+         <article class="flex gap-6 items-start cursor-pointer group" onclick="showPage('article')">
+          <div class="flex-1 min-w-0">
+           <div class="flex items-center gap-2 mb-2">
+            <div class="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-white text-[8px] font-semibold">
+             R
+            </div><span class="text-xs text-secondary font-body">Raj Patel</span>
+           </div>
+           <h3 class="font-display font-semibold text-ink text-base leading-snug group-hover:text-ink-light transition-colors">Learning a New Language After 40</h3>
+           <p class="text-sm text-secondary font-body mt-1 line-clamp-2 hidden sm:block">Neuroplasticity research shows our brains are far more adaptable than we once believed.</p>
+           <div class="flex items-center gap-3 mt-3"><span class="text-xs text-secondary font-body">Dec 10 · 9 min</span> <span class="tag-pill px-2 py-1 text-[11px] font-body border border-border rounded-sm text-secondary cursor-pointer">Science</span>
+           </div>
+          </div>
+          <div class="w-24 h-24 rounded-sm bg-slate-100 flex-shrink-0 flex items-center justify-center border border-border"><img src="https://images.unsplash.com/photo-1491438639410-aceb109786c8?w=200&amp;q=80" alt="Language learning" class="w-full h-full object-cover rounded-sm" loading="lazy" onerror="this.style.background='#f3f4f6';">
+          </div>
+         </article>
+        </div>
+       </div>
+      </div><!-- Sidebar -->
+      <aside class="lg:col-span-4">
+       <div class="sticky top-24 space-y-10">
+        <!-- Trending -->
+        <div>
+         <h3 class="text-xs font-body font-semibold text-secondary uppercase tracking-widest mb-6 flex items-center gap-2"><i data-lucide="trending-up" class="w-4 h-4"></i> Trending</h3>
+         <div class="space-y-6">
+          <div class="flex gap-3 cursor-pointer group" onclick="showPage('article')">
+           <span class="text-2xl font-display font-semibold text-border group-hover:text-ink transition-colors">01</span>
+           <div>
+            <h4 class="font-body font-semibold text-sm text-ink leading-snug group-hover:text-ink-light transition-colors">Why Every Developer Should Learn to Write</h4>
+            <p class="text-xs text-secondary font-body mt-1">Elena Moroz · 4 min</p>
+           </div>
+          </div>
+          <div class="flex gap-3 cursor-pointer group" onclick="showPage('article')">
+           <span class="text-2xl font-display font-semibold text-border group-hover:text-ink transition-colors">02</span>
+           <div>
+            <h4 class="font-body font-semibold text-sm text-ink leading-snug group-hover:text-ink-light transition-colors">The Death of the Open Office Plan</h4>
+            <p class="text-xs text-secondary font-body mt-1">Tom Wright · 6 min</p>
+           </div>
+          </div>
+          <div class="flex gap-3 cursor-pointer group" onclick="showPage('article')">
+           <span class="text-2xl font-display font-semibold text-border group-hover:text-ink transition-colors">03</span>
+           <div>
+            <h4 class="font-body font-semibold text-sm text-ink leading-snug group-hover:text-ink-light transition-colors">Designing for Calm in a Noisy World</h4>
+            <p class="text-xs text-secondary font-body mt-1">Yuki Tanaka · 5 min</p>
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="border-t border-border"></div><!-- Popular Topics -->
+        <div>
+         <h3 class="text-xs font-body font-semibold text-secondary uppercase tracking-widest mb-4">Popular Topics</h3>
+         <div class="flex flex-wrap gap-2"><span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Technology</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Design</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Writing</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Science</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Philosophy</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Creativity</span>
+         </div>
+        </div>
+        <div class="border-t border-border"></div><!-- Recommended Authors -->
+        <div>
+         <h3 class="text-xs font-body font-semibold text-secondary uppercase tracking-widest mb-6">Who to Follow</h3>
+         <div class="space-y-4">
+          <div class="flex items-center justify-between">
+           <div class="flex items-center gap-3 cursor-pointer flex-1" onclick="showPage('profile')">
+            <div class="w-10 h-10 rounded-full bg-ink flex items-center justify-center text-white text-sm font-body font-semibold flex-shrink-0">
+             S
+            </div>
+            <div class="min-w-0">
+             <p class="text-sm font-body font-semibold text-ink">Sarah Chen</p>
+             <p class="text-xs text-secondary font-body truncate">Mindfulness &amp; Writing</p>
+            </div>
+           </div><button class="follow-btn px-3 py-1.5 rounded-sm border border-ink text-xs font-body font-semibold text-ink hover:bg-ink hover:text-white transition-colors ml-2 flex-shrink-0" onclick="toggleFollow(this)">Follow</button>
+          </div>
+          <div class="flex items-center justify-between">
+           <div class="flex items-center gap-3 cursor-pointer flex-1" onclick="showPage('profile')">
+            <div class="w-10 h-10 rounded-full bg-ink flex items-center justify-center text-white text-sm font-body font-semibold flex-shrink-0">
+             M
+            </div>
+            <div class="min-w-0">
+             <p class="text-sm font-body font-semibold text-ink">Marcus Rivera</p>
+             <p class="text-xs text-secondary font-body truncate">Engineering &amp; Architecture</p>
+            </div>
+           </div><button class="follow-btn px-3 py-1.5 rounded-sm border border-ink text-xs font-body font-semibold text-ink hover:bg-ink hover:text-white transition-colors ml-2 flex-shrink-0" onclick="toggleFollow(this)">Follow</button>
+          </div>
+          <div class="flex items-center justify-between">
+           <div class="flex items-center gap-3 cursor-pointer flex-1" onclick="showPage('profile')">
+            <div class="w-10 h-10 rounded-full bg-ink flex items-center justify-center text-white text-sm font-body font-semibold flex-shrink-0">
+             A
+            </div>
+            <div class="min-w-0">
+             <p class="text-sm font-body font-semibold text-ink">Aria Nguyen</p>
+             <p class="text-xs text-secondary font-body truncate">Design &amp; Typography</p>
+            </div>
+           </div><button class="follow-btn px-3 py-1.5 rounded-sm border border-ink text-xs font-body font-semibold text-ink hover:bg-ink hover:text-white transition-colors ml-2 flex-shrink-0" onclick="toggleFollow(this)">Follow</button>
+          </div>
+         </div>
+        </div>
+        <div class="border-t border-border"></div><!-- Newsletter -->
+        <div class="bg-surface-alt p-6 border border-border">
+         <h3 id="newsletterHeading" class="font-display font-semibold text-lg text-ink mb-2">Stay curious.</h3>
+         <p id="newsletterDesc" class="text-sm text-secondary font-body mb-4">Get the best stories delivered weekly.</p>
+         <form onsubmit="handleNewsletter(event)"><label for="newsletterEmail" class="sr-only">Email address</label> <input id="newsletterEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 rounded-sm border border-border text-sm font-body mb-3 outline-none focus:border-ink transition-all bg-white"> <button type="submit" class="w-full py-2.5 bg-ink text-white rounded-sm text-sm font-body font-semibold hover:bg-ink-light transition-colors">Subscribe</button>
+         </form>
+         <p id="newsletterMsg" class="text-xs text-ink font-body mt-2 hidden">✓ Thanks for subscribing</p>
+        </div>
+       </div>
+      </aside>
+     </div>
+    </section><!-- Footer -->
+    <footer id="mainFooter" class="border-t border-border mt-20 bg-surface-alt">
+     <div class="max-w-6xl mx-auto px-6 lg:px-8 py-12">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
+       <div class="col-span-2 md:col-span-1">
+        <span class="font-display font-semibold text-ink text-lg">InkFlow</span>
+        <p id="footerTagline" class="text-sm text-secondary font-body mt-2">Where words find their flow.</p>
+       </div>
+       <div>
+        <h4 class="text-xs font-body font-semibold text-ink uppercase tracking-widest mb-4">Product</h4>
+        <ul class="space-y-2">
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">About</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Membership</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Blog</a></li>
+        </ul>
+       </div>
+       <div>
+        <h4 class="text-xs font-body font-semibold text-ink uppercase tracking-widest mb-4">Resources</h4>
+        <ul class="space-y-2">
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Help Center</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Writing Guide</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">API</a></li>
+        </ul>
+       </div>
+       <div>
+        <h4 class="text-xs font-body font-semibold text-ink uppercase tracking-widest mb-4">Community</h4>
+        <ul class="space-y-2">
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Writers</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Publications</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Topics</a></li>
+        </ul>
+       </div>
+       <div>
+        <h4 class="text-xs font-body font-semibold text-ink uppercase tracking-widest mb-4">Company</h4>
+        <ul class="space-y-2">
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Careers</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Contact</a></li>
+         <li><a href="#" class="text-sm font-body text-secondary hover:text-ink transition-colors">Privacy</a></li>
+        </ul>
+       </div>
+      </div>
+      <div class="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+       <p class="text-xs text-secondary font-body">© 2024 InkFlow. All rights reserved.</p>
+       <div class="flex items-center gap-4"><a href="#" class="text-secondary hover:text-ink transition-colors"><i data-lucide="twitter" class="w-4 h-4"></i></a> <a href="#" class="text-secondary hover:text-ink transition-colors"><i data-lucide="github" class="w-4 h-4"></i></a> <a href="#" class="text-secondary hover:text-ink transition-colors"><i data-lucide="linkedin" class="w-4 h-4"></i></a>
+       </div>
+      </div>
+     </div>
+    </footer>
+   </div><!-- ARTICLE PAGE -->
+   <div id="page-article" class="page">
+    <article class="max-w-4xl mx-auto px-6 lg:px-8 py-12">
+     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <!-- Floating Sidebar -->
+      <div class="hidden lg:block lg:col-span-1">
+       <div class="floating-sidebar flex flex-col items-center gap-6 pt-20">
+        <button class="group flex flex-col items-center gap-2" onclick="toggleLike(this)" aria-label="Like">
+         <div class="w-9 h-9 rounded-full border border-border flex items-center justify-center group-hover:border-ink group-hover:bg-surface transition-all"><i data-lucide="heart" class="w-4 h-4 text-secondary group-hover:text-ink transition-colors"></i>
+         </div><span class="text-xs text-secondary font-body like-count">247</span> </button> <button class="group flex flex-col items-center gap-2" onclick="toggleBookmark(this)" aria-label="Bookmark">
+         <div class="w-9 h-9 rounded-full border border-border flex items-center justify-center group-hover:border-ink group-hover:bg-surface transition-all"><i data-lucide="bookmark" class="w-4 h-4 text-secondary group-hover:text-ink transition-colors"></i>
+         </div></button> <button class="group flex flex-col items-center gap-2" aria-label="Share">
+         <div class="w-9 h-9 rounded-full border border-border flex items-center justify-center group-hover:border-ink group-hover:bg-surface transition-all"><i data-lucide="share-2" class="w-4 h-4 text-secondary group-hover:text-ink transition-colors"></i>
+         </div></button>
+       </div>
+      </div><!-- Article Content -->
+      <div class="lg:col-span-7">
+       <header class="mb-10">
+        <h1 class="font-display font-semibold text-5xl text-ink leading-tight mb-4">The Art of Mindful Writing</h1>
+        <p class="font-serif text-xl text-secondary leading-relaxed mb-6">How slowing down and embracing silence transform your creative process and help you find your authentic voice.</p>
+        <div class="flex items-center gap-4">
+         <div class="w-12 h-12 rounded-full bg-ink flex items-center justify-center text-white font-body font-semibold cursor-pointer" onclick="showPage('profile')">
+          S
+         </div>
+         <div>
+          <div class="flex items-center gap-2"><a href="#" onclick="showPage('profile'); return false;" class="text-sm font-body font-semibold text-ink hover:text-secondary transition-colors">Sarah Chen</a> <button class="text-sm font-body text-ink font-semibold hover:text-secondary transition-colors" onclick="toggleFollow(this)">Follow</button>
+          </div>
+          <p class="text-xs font-body text-secondary">Dec 15, 2024 · 8 min read</p>
+         </div>
+        </div>
+       </header><!-- Cover Image -->
+       <div class="w-full aspect-[16/9] rounded-sm bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 mb-12 flex items-center justify-center overflow-hidden relative border border-border"><img src="https://images.unsplash.com/photo-1455849318743-68233fe63efd?w=1200&amp;q=80" alt="Mindful writing cover" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='linear-gradient(to bottom right, #eff6ff, #e0e7ff)';">
+       </div><!-- Article Body -->
+       <div class="article-body">
+        <p>There's a particular quality of silence that writers seek — not the absence of sound, but the presence of attention. In our hyper-connected age, where notifications compete for every spare moment, the act of sitting down to write has become a radical form of mindfulness.</p>
+        <h2>The Paradox of Productivity</h2>
+        <p>We live in an era that celebrates output. More words, more articles, more content. Yet the writers who endure — whose work resonates across decades — are those who learned to slow down. They understood that writing is not about filling pages, but about distilling thought into its purest form.</p>
+        <blockquote>
+         The first draft is just you telling yourself the story. — Terry Pratchett
+        </blockquote>
+        <p>This insight reveals a profound truth about the creative process. The initial act of writing is inherently messy, uncertain, and deeply personal. It requires a willingness to be imperfect that our perfectionist culture rarely permits.</p>
+        <h2>Building a Practice of Presence</h2>
+        <p>Mindful writing begins before your fingers touch the keyboard. It starts with a simple ritual — perhaps a cup of tea, a moment of stillness, or three deliberate breaths. These small acts signal to your mind that it's time to shift from consumption to creation.</p>
+        <ul>
+         <li><strong>Start with silence.</strong> Give yourself five minutes of quiet before writing.</li>
+         <li><strong>Write without editing.</strong> Let the words flow before your inner critic arrives.</li>
+         <li><strong>Embrace imperfection.</strong> The messy draft is the seed of something beautiful.</li>
+         <li><strong>Read your work aloud.</strong> Your ear catches what your eye misses.</li>
+        </ul>
+        <h3>The Role of Environment</h3>
+        <p>Virginia Woolf argued for "a room of one's own." While not everyone can dedicate a physical space to writing, we can create mental rooms — pockets of focused attention carved from the noise of daily life. This might mean writing at dawn, or in a café where anonymity provides a shield against interruption.</p>
+        <div class="img-placeholder bg-surface-alt border border-border"><img src="https://images.unsplash.com/photo-1516321318423-f06f70570ec0?w=800&amp;q=80" alt="Writing environment" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+        </div>
+        <h2>Finding Your Voice</h2>
+        <p>Mindful writing ultimately leads to the discovery of voice — that distinctive quality that makes your words unmistakably yours. Voice cannot be manufactured or imitated. It emerges naturally when you write with authenticity, vulnerability, and attention.</p>
+        <blockquote>
+         Write what disturbs you, what you fear, what you have not been willing to speak about. — Natalie Goldberg
+        </blockquote>
+        <p>In the end, mindful writing is not a technique to master but a practice to cultivate. Like meditation, it rewards patience and consistency. And like all meaningful work, it begins with a single breath, a single word, and the courage to sit with silence.</p>
+       </div><!-- Tags -->
+       <div class="flex flex-wrap gap-2 mt-10 pt-8 border-t border-border"><span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Writing</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Mindfulness</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Creativity</span> <span class="tag-pill px-3 py-1.5 rounded-sm text-xs font-body border border-border cursor-pointer text-ink">Productivity</span>
+       </div><!-- Mobile reaction bar -->
+       <div class="flex lg:hidden items-center justify-between py-4 border-t border-border mt-4">
+        <div class="flex items-center gap-6"><button class="flex items-center gap-2 text-secondary hover:text-ink transition-colors" onclick="toggleLike(this)"> <i data-lucide="heart" class="w-4 h-4"></i><span class="text-xs font-body">247</span> </button> <button class="flex items-center gap-2 text-secondary hover:text-ink transition-colors"> <i data-lucide="message-circle" class="w-4 h-4"></i><span class="text-xs font-body">18</span> </button>
+        </div>
+        <div class="flex items-center gap-4"><button class="bookmark-btn text-secondary" onclick="toggleBookmark(this)"><i data-lucide="bookmark" class="w-4 h-4"></i></button> <button class="text-secondary hover:text-ink transition-colors"><i data-lucide="share-2" class="w-4 h-4"></i></button>
+        </div>
+       </div><!-- Author Bio -->
+       <div class="mt-10 p-6 bg-surface-alt rounded-sm border border-border">
+        <div class="flex flex-col sm:flex-row items-start gap-4">
+         <div class="w-16 h-16 rounded-full bg-ink flex items-center justify-center text-white text-xl font-body font-semibold flex-shrink-0 cursor-pointer" onclick="showPage('profile')">
+          S
+         </div>
+         <div class="flex-1">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+           <div>
+            <h3 class="font-body font-semibold text-ink text-base">Written by Sarah Chen</h3>
+            <p class="text-sm text-secondary font-body">1.2K followers</p>
+           </div><button class="follow-btn px-5 py-2 bg-ink text-white rounded-sm text-sm font-body font-semibold hover:bg-ink-light transition-colors" onclick="toggleFollow(this)">Follow</button>
+          </div>
+          <p class="text-sm text-secondary font-body leading-relaxed">Writer and meditation teacher exploring the intersection of creativity, consciousness, and technology. Based in San Francisco.</p>
+         </div>
+        </div>
+       </div><!-- Comments Section -->
+       <div class="mt-12 pt-8 border-t border-border">
+        <h3 class="font-display font-semibold text-2xl text-ink mb-8">Responses</h3><!-- Comment Input -->
+        <div class="flex gap-3 mb-8">
+         <div class="w-10 h-10 rounded-full bg-ink flex items-center justify-center text-white text-sm font-body font-semibold flex-shrink-0">
+          E
+         </div>
+         <div class="flex-1"><label for="commentInput" class="sr-only">Write a response</label> <textarea id="commentInput" rows="3" placeholder="What are your thoughts?" class="comment-input w-full px-4 py-3 border border-border rounded-sm text-sm font-body resize-none transition-all bg-white"></textarea>
+          <div class="flex justify-end mt-2"><button onclick="postComment()" class="px-5 py-2 bg-ink text-white rounded-sm text-sm font-body font-semibold hover:bg-ink-light transition-colors">Respond</button>
+          </div>
+         </div>
+        </div><!-- Comments -->
+        <div id="commentsList" class="space-y-6">
+         <div class="flex gap-3">
+          <div class="w-8 h-8 rounded-full bg-ink flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+           K
+          </div>
+          <div class="flex-1">
+           <div class="flex items-center gap-2 mb-1"><span class="text-sm font-body font-semibold text-ink">Kai Nakamura</span> <span class="text-xs text-secondary font-body">2 hours ago</span>
+           </div>
+           <p class="text-sm font-body text-ink leading-relaxed">This resonates deeply. I've started a morning writing practice and the difference in clarity is remarkable. The section on environment particularly struck me.</p>
+           <div class="flex items-center gap-4 mt-2"><button class="flex items-center gap-1 text-xs text-secondary font-body hover:text-ink transition-colors" onclick="toggleLike(this)"> <i data-lucide="heart" class="w-3.5 h-3.5"></i> 12 </button> <button class="text-xs text-secondary font-body hover:text-ink transition-colors">Reply</button>
+           </div>
+          </div>
+         </div>
+         <div class="flex gap-3">
+          <div class="w-8 h-8 rounded-full bg-ink flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+           P
+          </div>
+          <div class="flex-1">
+           <div class="flex items-center gap-2 mb-1"><span class="text-sm font-body font-semibold text-ink">Priya Sharma</span> <span class="text-xs text-secondary font-body">5 hours ago</span>
+           </div>
+           <p class="text-sm font-body text-ink leading-relaxed">Beautifully written. The Pratchett quote is one of my favorites. I'd add that mindful writing also means being willing to delete — sometimes the most powerful editing decision is subtraction.</p>
+           <div class="flex items-center gap-4 mt-2"><button class="flex items-center gap-1 text-xs text-secondary font-body hover:text-ink transition-colors" onclick="toggleLike(this)"> <i data-lucide="heart" class="w-3.5 h-3.5"></i> 8 </button> <button class="text-xs text-secondary font-body hover:text-ink transition-colors">Reply</button>
+           </div>
+          </div>
+         </div>
+        </div>
+       </div><!-- Related Articles -->
+       <div class="mt-12 pt-8 border-t border-border">
+        <h3 class="font-display font-semibold text-2xl text-ink mb-8">More from InkFlow</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+         <article class="card-hover border border-border overflow-hidden bg-white cursor-pointer" onclick="showPage('article')">
+          <div class="aspect-[16/9] bg-slate-100 overflow-hidden border-b border-border"><img src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=500&amp;q=80" alt="Deep work" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+          </div>
+          <div class="p-6">
+           <h4 class="font-display font-semibold text-ink leading-snug">The Writer's Guide to Deep Work</h4>
+           <p class="text-xs text-secondary font-body mt-2">Elena Moroz · 6 min read</p>
+          </div>
+         </article>
+         <article class="card-hover border border-border overflow-hidden bg-white cursor-pointer" onclick="showPage('article')">
+          <div class="aspect-[16/9] bg-slate-100 overflow-hidden border-b border-border"><img src="https://images.unsplash.com/photo-1507842955343-583f352ba9ad?w=500&amp;q=80" alt="Journaling" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+          </div>
+          <div class="p-6">
+           <h4 class="font-display font-semibold text-ink leading-snug">Why Journaling Is the Most Underrated Skill</h4>
+           <p class="text-xs text-secondary font-body mt-2">Yuki Tanaka · 5 min read</p>
+          </div>
+         </article>
+        </div>
+       </div>
+      </div><!-- Article Sidebar -->
+      <div class="hidden lg:block lg:col-span-4">
+       <div class="sticky top-24 space-y-8">
+        <div>
+         <h3 class="text-xs font-body font-semibold text-secondary uppercase tracking-widest mb-6">More from Sarah</h3>
+         <div class="space-y-4">
+          <div class="cursor-pointer group" onclick="showPage('article')">
+           <h4 class="font-body font-semibold text-sm text-ink group-hover:text-secondary transition-colors leading-snug">Silence as a Creative Tool</h4>
+           <p class="text-xs text-secondary font-body mt-1">Nov 28 · 5 min</p>
+          </div>
+          <div class="cursor-pointer group" onclick="showPage('article')">
+           <h4 class="font-body font-semibold text-sm text-ink group-hover:text-secondary transition-colors leading-snug">What My Cat Taught Me About Focus</h4>
+           <p class="text-xs text-secondary font-body mt-1">Nov 15 · 4 min</p>
+          </div>
+          <div class="cursor-pointer group" onclick="showPage('article')">
+           <h4 class="font-body font-semibold text-sm text-ink group-hover:text-secondary transition-colors leading-snug">The Hidden Cost of Always Being Online</h4>
+           <p class="text-xs text-secondary font-body mt-1">Oct 30 · 7 min</p>
+          </div>
+         </div>
+        </div>
+       </div>
+      </div>
+     </div>
+    </article>
+   </div><!-- PROFILE PAGE -->
+   <div id="page-profile" class="page">
+    <div class="max-w-4xl mx-auto px-6 lg:px-8 py-12">
+     <!-- Profile Header -->
+     <div class="flex flex-col sm:flex-row items-center sm:items-start gap-8 mb-12">
+      <div class="w-28 h-28 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-white text-4xl font-body font-semibold flex-shrink-0 overflow-hidden border border-border"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&amp;q=80" alt="Sarah Chen" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='linear-gradient(to bottom right, #cbd5e1, #94a3b8)';">
+      </div>
+      <div class="text-center sm:text-left flex-1">
+       <h1 class="font-display font-semibold text-3xl text-ink">Sarah Chen</h1>
+       <p class="text-secondary font-body mt-2 max-w-lg leading-relaxed">Writer, meditation teacher, and recovering perfectionist. Exploring the intersection of creativity, consciousness, and technology.</p>
+       <div class="flex items-center justify-center sm:justify-start gap-8 mt-6">
+        <div class="text-center">
+         <p class="font-body font-semibold text-ink">1.2K</p>
+         <p class="text-xs text-secondary font-body">Followers</p>
+        </div>
+        <div class="text-center">
+         <p class="font-body font-semibold text-ink">340</p>
+         <p class="text-xs text-secondary font-body">Following</p>
+        </div>
+        <div class="text-center">
+         <p class="font-body font-semibold text-ink">47</p>
+         <p class="text-xs text-secondary font-body">Articles</p>
+        </div>
+       </div><button class="follow-btn mt-6 px-6 py-2.5 bg-ink text-white rounded-sm text-sm font-body font-semibold hover:bg-ink-light transition-colors" onclick="toggleFollow(this)">Follow</button>
+      </div>
+     </div>
+     <div class="border-t border-border mb-12"></div><!-- Author's Articles -->
+     <h2 class="text-xs font-body font-semibold text-secondary uppercase tracking-widest mb-8">Articles by Sarah</h2>
+     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <article class="card-hover border border-border overflow-hidden bg-white cursor-pointer" onclick="showPage('article')">
+       <div class="aspect-[4/3] bg-slate-100 overflow-hidden border-b border-border"><img src="https://images.unsplash.com/photo-1455849318743-68233fe63efd?w=500&amp;q=80" alt="Mindful writing" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+       </div>
+       <div class="p-6">
+        <h3 class="font-display font-semibold text-ink leading-snug">The Art of Mindful Writing</h3>
+        <p class="text-sm text-secondary font-body mt-2 line-clamp-2">How slowing down transforms your creative process.</p>
+        <p class="text-xs text-secondary font-body mt-3">Dec 15 · 8 min read</p>
+       </div>
+      </article>
+      <article class="card-hover border border-border overflow-hidden bg-white cursor-pointer" onclick="showPage('article')">
+       <div class="aspect-[4/3] bg-slate-100 overflow-hidden border-b border-border"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&amp;q=80" alt="Silence as creative tool" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+       </div>
+       <div class="p-6">
+        <h3 class="font-display font-semibold text-ink leading-snug">Silence as a Creative Tool</h3>
+        <p class="text-sm text-secondary font-body mt-2 line-clamp-2">Finding inspiration in the spaces between noise.</p>
+        <p class="text-xs text-secondary font-body mt-3">Nov 28 · 5 min read</p>
+       </div>
+      </article>
+      <article class="card-hover border border-border overflow-hidden bg-white cursor-pointer" onclick="showPage('article')">
+       <div class="aspect-[4/3] bg-slate-100 overflow-hidden border-b border-border"><img src="https://images.unsplash.com/photo-1514888286974-6c03bf1a3dfa?w=500&amp;q=80" alt="What my cat taught me" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#f3f4f6';">
+       </div>
+       <div class="p-6">
+        <h3 class="font-display font-semibold text-ink leading-snug">What My Cat Taught Me About Focus</h3>
+        <p class="text-sm text-secondary font-body mt-2 line-clamp-2">Lessons in concentration from an unlikely teacher.</p>
+        <p class="text-xs text-secondary font-body mt-3">Nov 15 · 4 min read</p>
+       </div>
+      </article>
+     </div>
+    </div>
+   </div><!-- EDITOR PAGE -->
+   <div id="page-editor" class="page">
+    <div class="max-w-3xl mx-auto px-6 lg:px-8 py-8">
+     <!-- Editor Header -->
+     <div class="flex items-center justify-between mb-8">
+      <button onclick="showPage('home')" class="flex items-center gap-2 text-secondary hover:text-ink transition-colors font-body text-sm"> <i data-lucide="arrow-left" class="w-4 h-4"></i> Back </button>
+      <div class="flex items-center gap-3"><button class="px-4 py-2 border border-border rounded-sm text-sm font-body font-semibold text-ink hover:bg-surface transition-colors" onclick="showPreview()">Preview</button> <button class="px-5 py-2 bg-ink text-white rounded-sm text-sm font-body font-semibold hover:bg-ink-light transition-colors" onclick="publishArticle()">Publish</button>
+      </div>
+     </div><!-- Featured Image Upload -->
+     <div id="featuredImageUpload" class="w-full aspect-[21/9] rounded-sm border-2 border-dashed border-border bg-surface-alt flex flex-col items-center justify-center cursor-pointer hover:border-ink hover:bg-surface transition-all mb-8 group" onclick="this.classList.toggle('border-ink')"><i data-lucide="image" class="w-8 h-8 text-secondary group-hover:text-ink transition-colors mb-2"></i>
+      <p class="text-sm font-body text-secondary group-hover:text-ink transition-colors">Add a cover image</p>
+     </div><!-- Title -->
+     <div class="mb-2"><label for="editorTitle" class="sr-only">Article title</label> <input id="editorTitle" type="text" placeholder="Title" class="w-full text-5xl font-display font-semibold text-ink placeholder:text-gray-300 outline-none leading-tight">
+     </div><!-- Subtitle -->
+     <div class="mb-10"><label for="editorSubtitle" class="sr-only">Article subtitle</label> <input id="editorSubtitle" type="text" placeholder="Write a subtitle..." class="w-full text-lg font-serif text-secondary placeholder:text-gray-400 outline-none leading-relaxed">
+     </div><!-- Toolbar -->
+     <div class="flex items-center gap-0.5 py-3 px-2 border-y border-border mb-8 overflow-x-auto bg-surface-alt"><button class="toolbar-btn p-2 rounded-sm" onclick="formatText('bold')" title="Bold" aria-label="Bold"><i data-lucide="bold" class="w-4 h-4"></i></button> <button class="toolbar-btn p-2 rounded-sm" onclick="formatText('italic')" title="Italic" aria-label="Italic"><i data-lucide="italic" class="w-4 h-4"></i></button>
+      <div class="w-px h-5 bg-border mx-1"></div><button class="toolbar-btn p-2 rounded-sm" onclick="formatText('h2')" title="Heading" aria-label="Heading"><i data-lucide="heading-2" class="w-4 h-4"></i></button> <button class="toolbar-btn p-2 rounded-sm" onclick="formatText('quote')" title="Quote" aria-label="Quote"><i data-lucide="quote" class="w-4 h-4"></i></button>
+      <div class="w-px h-5 bg-border mx-1"></div><button class="toolbar-btn p-2 rounded-sm" onclick="formatText('ul')" title="Bullet list" aria-label="Bullet list"><i data-lucide="list" class="w-4 h-4"></i></button> <button class="toolbar-btn p-2 rounded-sm" onclick="formatText('ol')" title="Numbered list" aria-label="Numbered list"><i data-lucide="list-ordered" class="w-4 h-4"></i></button>
+      <div class="w-px h-5 bg-border mx-1"></div><button class="toolbar-btn p-2 rounded-sm" title="Insert image" aria-label="Insert image"><i data-lucide="image" class="w-4 h-4"></i></button> <button class="toolbar-btn p-2 rounded-sm" onclick="formatText('link')" title="Add link" aria-label="Add link"><i data-lucide="link-2" class="w-4 h-4"></i></button> <button class="toolbar-btn p-2 rounded-sm" onclick="formatText('code')" title="Code block" aria-label="Code block"><i data-lucide="code" class="w-4 h-4"></i></button>
+     </div><!-- Editor Area -->
+     <div class="mb-10"><label for="editorContent" class="sr-only">Article content</label>
+      <div id="editorContent" class="editor-area font-serif text-lg text-ink leading-relaxed outline-none" contenteditable="true" data-placeholder="Tell your story..." role="textbox" aria-label="Article content"></div>
+     </div><!-- Tags -->
+     <div class="border-t border-border pt-6">
+      <h4 class="text-sm font-body font-semibold text-ink mb-4">Tags</h4>
+      <div class="flex flex-wrap gap-2 mb-4" id="editorTags"><span class="flex items-center gap-1 px-3 py-1.5 bg-surface rounded-sm text-sm font-body border border-border"> Writing <button class="ml-1 text-secondary hover:text-ink" onclick="this.parentElement.remove()" aria-label="Remove tag">×</button> </span> <span class="flex items-center gap-1 px-3 py-1.5 bg-surface rounded-sm text-sm font-body border border-border"> Mindfulness <button class="ml-1 text-secondary hover:text-ink" onclick="this.parentElement.remove()" aria-label="Remove tag">×</button> </span>
+      </div>
+      <div class="flex gap-2"><label for="tagInput" class="sr-only">Add a tag</label> <input id="tagInput" type="text" placeholder="Add a tag..." class="flex-1 px-3 py-2 border border-border rounded-sm text-sm font-body outline-none focus:border-ink transition-colors bg-white"> <button onclick="addTag()" class="px-4 py-2 border border-border rounded-sm text-sm font-body text-secondary hover:text-ink hover:border-ink transition-colors">Add</button>
+      </div>
+     </div><!-- Publish notification -->
+     <div id="publishNotif" class="hidden fixed bottom-8 left-1/2 -translate-x-1/2 bg-ink text-white px-6 py-3 rounded-sm text-sm font-body font-medium shadow-lg z-50 animate-in">
+      ✓ Article published successfully
+     </div>
+     <div id="previewNotif" class="hidden fixed bottom-8 left-1/2 -translate-x-1/2 bg-ink text-white px-6 py-3 rounded-sm text-sm font-body font-medium shadow-lg z-50 animate-in">
+      Preview mode enabled
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      site_title: 'InkFlow',
+      featured_title: 'The Art of Mindful Writing',
+      featured_excerpt: 'How slowing down and embracing silence can transform your creative process.',
+      newsletter_heading: 'Stay curious.',
+      newsletter_desc: 'Get the best stories delivered weekly.',
+      footer_tagline: 'Where words find their flow.',
+      accent_color: '#111111'
+    };
+
+    function showPage(pageName) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const page = document.getElementById('page-' + pageName);
+      if (page) {
+        page.classList.add('active');
+        document.getElementById('app').scrollTop = 0;
+      }
+      lucide.createIcons();
+    }
+
+    function toggleSearch() {
+      const overlay = document.getElementById('searchOverlay');
+      overlay.classList.toggle('hidden');
+      if (!overlay.classList.contains('hidden')) {
+        document.getElementById('searchInput').focus();
+      }
+    }
+
+    function toggleBookmark(el) {
+      el.classList.toggle('active');
+    }
+
+    function toggleFollow(el) {
+      if (el.textContent.trim() === 'Follow') {
+        el.textContent = 'Following';
+        el.style.background = '#111111';
+        el.style.color = '#ffffff';
+        el.style.borderColor = '#111111';
+      } else {
+        el.textContent = 'Follow';
+        el.style.background = '';
+        el.style.color = '';
+        el.style.borderColor = '';
+      }
+    }
+
+    function toggleLike(el) {
+      el.classList.toggle('liked');
+      const icon = el.querySelector('[data-lucide="heart"]');
+      if (icon) {
+        if (el.classList.contains('liked')) {
+          icon.style.fill = '#DC2626';
+          icon.style.color = '#DC2626';
+        } else {
+          icon.style.fill = 'none';
+          icon.style.color = '';
+        }
+      }
+      const countEl = el.querySelector('.like-count') || el.querySelector('span');
+      if (countEl && countEl.textContent.match(/\d+/)) {
+        const num = parseInt(countEl.textContent);
+        countEl.textContent = el.classList.contains('liked') ? num + 1 : num - 1;
+      }
+    }
+
+    function handleNewsletter(e) {
+      e.preventDefault();
+      const msg = document.getElementById('newsletterMsg');
+      msg.classList.remove('hidden');
+      document.getElementById('newsletterEmail').value = '';
+      setTimeout(() => msg.classList.add('hidden'), 3000);
+    }
+
+    function postComment() {
+      const input = document.getElementById('commentInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const comment = document.createElement('div');
+      comment.className = 'flex gap-3 animate-in';
+      comment.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-ink flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">E</div>
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-body font-semibold text-ink">You</span>
+            <span class="text-xs text-secondary font-body">Just now</span>
+          </div>
+          <p class="text-sm font-body text-ink leading-relaxed">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          <div class="flex items-center gap-4 mt-2">
+            <button class="flex items-center gap-1 text-xs text-secondary font-body hover:text-ink transition-colors" onclick="toggleLike(this)">
+              <i data-lucide="heart" class="w-3.5 h-3.5"></i> 0
+            </button>
+            <button class="text-xs text-secondary font-body hover:text-ink transition-colors">Reply</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('commentsList').prepend(comment);
+      input.value = '';
+      lucide.createIcons();
+    }
+
+    function formatText(format) {
+      const editor = document.getElementById('editorContent');
+      editor.focus();
+      switch(format) {
+        case 'bold': document.execCommand('bold'); break;
+        case 'italic': document.execCommand('italic'); break;
+        case 'h2': document.execCommand('formatBlock', false, 'h2'); break;
+        case 'quote': document.execCommand('formatBlock', false, 'blockquote'); break;
+        case 'ul': document.execCommand('insertUnorderedList'); break;
+        case 'ol': document.execCommand('insertOrderedList'); break;
+        case 'code': document.execCommand('formatBlock', false, 'pre'); break;
+        case 'link':
+          const url = 'https://example.com';
+          document.execCommand('createLink', false, url);
+          break;
+      }
+    }
+
+    function addTag() {
+      const input = document.getElementById('tagInput');
+      const text = input.value.trim();
+      if (!text) return;
+      const container = document.getElementById('editorTags');
+      const tag = document.createElement('span');
+      tag.className = 'flex items-center gap-1 px-3 py-1.5 bg-surface rounded-sm text-sm font-body border border-border';
+      tag.innerHTML = `${text} <button class="ml-1 text-secondary hover:text-ink" onclick="this.parentElement.remove()" aria-label="Remove tag">×</button>`;
+      container.appendChild(tag);
+      input.value = '';
+    }
+
+    function publishArticle() {
+      const notif = document.getElementById('publishNotif');
+      notif.classList.remove('hidden');
+      setTimeout(() => notif.classList.add('hidden'), 3000);
+    }
+
+    function showPreview() {
+      const notif = document.getElementById('previewNotif');
+      notif.classList.remove('hidden');
+      setTimeout(() => notif.classList.add('hidden'), 3000);
+    }
+
+    function applyConfig(config) {
+      const c = { ...defaultConfig, ...config };
+
+      if (document.getElementById('navLogo')) document.getElementById('navLogo').textContent = c.site_title;
+      if (document.getElementById('featuredTitle')) document.getElementById('featuredTitle').textContent = c.featured_title;
+      if (document.getElementById('featuredExcerpt')) document.getElementById('featuredExcerpt').textContent = c.featured_excerpt;
+      if (document.getElementById('newsletterHeading')) document.getElementById('newsletterHeading').textContent = c.newsletter_heading;
+      if (document.getElementById('newsletterDesc')) document.getElementById('newsletterDesc').textContent = c.newsletter_desc;
+      if (document.getElementById('footerTagline')) document.getElementById('footerTagline').textContent = c.footer_tagline;
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (config) => { applyConfig(config); },
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            { get: () => config.accent_color || defaultConfig.accent_color, set: (v) => { config.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); } }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ['site_title', config.site_title || defaultConfig.site_title],
+          ['featured_title', config.featured_title || defaultConfig.featured_title],
+          ['featured_excerpt', config.featured_excerpt || defaultConfig.featured_excerpt],
+          ['newsletter_heading', config.newsletter_heading || defaultConfig.newsletter_heading],
+          ['newsletter_desc', config.newsletter_desc || defaultConfig.newsletter_desc],
+          ['footer_tagline', config.footer_tagline || defaultConfig.footer_tagline],
+        ])
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') document.getElementById('searchOverlay').classList.add('hidden');
+    });
+
+    document.getElementById('tagInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); addTag(); }
+    });
+
+    lucide.createIcons();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9dc28b62827bb277',t:'MTc3MzQ4MzYxMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
